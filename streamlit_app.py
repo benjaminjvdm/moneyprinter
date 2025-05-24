@@ -28,22 +28,22 @@ rsi_ema = pd.Series(rsi).ewm(span=14, adjust=False).mean()
 fig = make_subplots(rows=1, cols=1, shared_xaxes=True, vertical_spacing=0.1)
 
 # Add RSI trace
-fig.add_trace(go.Scatter(x=data.index[-24:], y=rsi[-24:], name="RSI", line=dict(color="lightblue")), row=1, col=1)
+fig.add_trace(go.Scatter(x=data.index[-48:], y=rsi[-48:], name="RSI", line=dict(color="lightblue")), row=1, col=1)
 
 # Add EMA of RSI trace
-fig.add_trace(go.Scatter(x=data.index[-24:], y=rsi_ema[-24:], name="RSI EMA", line=dict(color="hotpink")), row=1, col=1)
+fig.add_trace(go.Scatter(x=data.index[-48:], y=rsi_ema[-48:], name="RSI EMA", line=dict(color="hotpink")), row=1, col=1)
 
 # Find crossover points
 rsi_series = pd.Series(rsi)
 rsi_ema_series = pd.Series(rsi_ema)
 crossovers = []
-for i in range(1, len(rsi_series[-24:])):
-    if (rsi_series[-24:][i] > rsi_ema_series[-24:][i] and rsi_series[-24:][i-1] < rsi_ema_series[-24:][i-1]):
-        if rsi_series[-24:][i] > 50:
-            crossovers.append({'index': data.index[-24:][i], 'type': 'bullish', 'rsi': rsi_series[-24:][i]})
-    elif (rsi_series[-24:][i] < rsi_ema_series[-24:][i] and rsi_series[-24:][i-1] > rsi_ema_series[-24:][i-1]):
-        if rsi_series[-24:][i] < 50:
-            crossovers.append({'index': data.index[-24:][i], 'type': 'bearish', 'rsi': rsi_series[-24:][i]})
+for i in range(1, len(rsi_series[-48:])):
+    if (rsi_series[-48:][i] > rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] < rsi_ema_series[-48:][i-1]):
+        if rsi_series[-48:][i] > 50:
+            crossovers.append({'index': data.index[-48:][i], 'type': 'bullish', 'rsi': rsi_series[-48:][i]})
+    elif (rsi_series[-48:][i] < rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] > rsi_ema_series[-48:][i-1]):
+        if rsi_series[-48:][i] < 50:
+            crossovers.append({'index': data.index[-48:][i], 'type': 'bearish', 'rsi': rsi_series[-48:][i]})
 
 # Add crossover markers
 for crossover in crossovers:
@@ -61,7 +61,7 @@ fig.update_layout(
     xaxis_rangeslider_visible=False,
     yaxis=dict(range=[0, 100]),
     shapes = [dict(
-        x0=data.index[-24:][0], x1=data.index[-24:][-1], y0=50, y1=50, type="line",
+        x0=data.index[-48:][0], x1=data.index[-48:][-1], y0=50, y1=50, type="line",
         line=dict(color="white", width=2, dash="dash")
     )]
 )
@@ -79,5 +79,5 @@ last_update_time = time.strftime("%Y-%m-%d " + str(hour).zfill(2) + ":%M:%S", ut
 st.write(f"Last updated: {last_update_time}")
 
 # Auto-refresh every 5 minutes
-time.sleep(300)
+time.sleep(60)
 st.rerun()
