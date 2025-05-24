@@ -33,6 +33,29 @@ fig.add_trace(go.Scatter(x=data.index[-24:], y=rsi[-24:], name="RSI", line=dict(
 # Add EMA of RSI trace
 fig.add_trace(go.Scatter(x=data.index[-24:], y=rsi_ema[-24:], name="RSI EMA", line=dict(color="hotpink")), row=1, col=1)
 
+# Find crossover points
+rsi_series = pd.Series(rsi)
+rsi_ema_series = pd.Series(rsi_ema)
+crossovers = []
+for i in range(1, len(rsi_series[-24:])):
+    if (rsi_series[-24:][i] > rsi_ema_series[-24:][i] and rsi_series[-24:][i-1] < rsi_ema_series[-24:][i-1]):
+        if rsi_series[-24:][i] > 50:
+            crossovers.append({'index': data.index[-24:][i], 'type': 'bullish', 'rsi': rsi_series[-24:][i]})
+    elif (rsi_series[-24:][i] < rsi_ema_series[-24:][i] and rsi_series[-24:][i-1] > rsi_ema_series[-24:][i-1]):
+        if rsi_series[-24:][i] < 50:
+            crossovers.append({'index': data.index[-24:][i], 'type': 'bearish', 'rsi': rsi_series[-24:][i]})
+
+# Add crossover markers
+for crossover in crossovers:
+    if crossover['type'] == 'bullish':
+        fig.add_trace(go.Scatter(x=[crossover['index']], y=[crossover['rsi'] - 5], mode='markers',
+                                 marker=dict(symbol='triangle-up', size=10, color='green'),
+                                 name='Bullish Crossover'), row=1, col=1)
+    elif crossover['type'] == 'bearish':
+        fig.add_trace(go.Scatter(x=[crossover['index']], y=[crossover['rsi'] + 5], mode='markers',
+                                 marker=dict(symbol='triangle-down', size=10, color='red'),
+                                 name='Bearish Crossover'), row=1, col=1)
+
 # Update layout
 fig.update_layout(
     xaxis_rangeslider_visible=False,
@@ -47,7 +70,12 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # Display last updated time
-last_update_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+utc_time = time.gmtime()
+hour = (utc_time.tm_hour + 2) % 24
+day = utc_time.tm_mday
+if utc_time.tm_hour + 2 >= 24:
+    day += 1
+last_update_time = time.strftime("%Y-%m-%d " + str(hour).zfill(2) + ":%M:%S", utc_time)
 st.write(f"Last updated: {last_update_time}")
 
 # Auto-refresh every 5 minutes
