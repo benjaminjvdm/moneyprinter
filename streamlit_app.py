@@ -4,7 +4,8 @@ import telegram
 def send_telegram_message(message):
     print("Inside send_telegram_message with message:", message)  # Log statement
     # WARNING: Hardcoding the token is not recommended. Use st.secrets instead.
-    bot = telegram.Bot(token="7826723713:AAELTqdOTm2WkAIpuq2IF1-NN99Lk0i6klA")
+    # Ensure TELEGRAM_BOT_TOKEN is set in Streamlit's secrets management.
+    bot = telegram.Bot(token=st.secrets["TELEGRAM_BOT_TOKEN"])
     try:
         result = asyncio.run(bot.send_message(chat_id="@MilitechKD637", text=message))
         st.write("Telegram message sent successfully!")
@@ -24,14 +25,34 @@ from plotly.subplots import make_subplots
 import time
 import ta
 
+# Load the DataFrame from CSV file
+try:
+    message_log_df = pd.read_csv("message_log.csv")
+except FileNotFoundError:
+    message_log_df = pd.DataFrame(columns=['message'])
+
+def normalize_message(message):
+    # Remove leading/trailing whitespace and convert to lowercase
+    return message.strip().lower()
+
+def is_duplicate_message(message, message_log_df):
+    normalized_message = normalize_message(message)
+    return normalized_message in message_log_df['message'].values
+
+def add_message_to_log(message, message_log_df):
+    normalized_message = normalize_message(message)
+    new_row = pd.DataFrame([{'message': normalized_message}])
+    message_log_df = pd.concat([message_log_df, new_row], ignore_index=True)
+
+    # Limit the DataFrame to the last 10 messages
+    if len(message_log_df) > 10:
+        message_log_df = message_log_df.iloc[-10:].reset_index(drop=True)
+
+    message_log_df.to_csv("message_log.csv", index=False)
+    return message_log_df
+
 # Set Streamlit app title
 st.title("GBPJPY Candlestick Chart with RSI and EMA")
-
-# Send Telegram message on app load
-message = "Militech-KD6-3.7 Initialised..."
-print("Calling send_telegram_message with message:", message)  # Log statement
-send_telegram_message(message)
-print("send_telegram_message called")  # Log statement
 
 # Function to fetch data
 @st.cache_data
@@ -68,22 +89,28 @@ for i in range(1, len(rsi_series[-48:])):
             if any(rsi_series[-48:][max(0, i-7):i] < 50):
                 crossovers.append({'index': data.index[-48:][i], 'type': 'bullish', 'rsi': rsi_series[-48:][i]})
 
-                # Send Telegram message on bullish crossover
-                message = f"Bullish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+            # Send Telegram message on bullish crossover
+            message = f"Bullish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+            if not is_duplicate_message(message, message_log_df):
                 print("Calling send_telegram_message with message:", message)  # Log statement
                 send_telegram_message(message)
-                print("send_telegram_message called")  # Log statement
+                message_log_df = add_message_to_log(message, message_log_df)
+            else:
+                print("Duplicate message suppressed:", message)  # Log statement
     elif (rsi_series[-48:][i] < rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] > rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] < 50:
             # Check if RSI was above 50 in the last 7 points before the crossover
             if any(rsi_series[-48:][max(0, i-7):i] > 50):
                 crossovers.append({'index': data.index[-48:][i], 'type': 'bearish', 'rsi': rsi_series[-48:][i]})
 
-                # Send Telegram message on bearish crossover
-                message = f"Bearish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+            # Send Telegram message on bearish crossover
+            message = f"Bearish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+            if not is_duplicate_message(message, message_log_df):
                 print("Calling send_telegram_message with message:", message)  # Log statement
                 send_telegram_message(message)
-                print("send_telegram_message called")  # Log statement
+                message_log_df = add_message_to_log(message, message_log_df)
+            else:
+                print("Duplicate message suppressed:", message)  # Log statement
 
 # Add crossover markers
 for crossover in crossovers:
@@ -119,8 +146,6 @@ last_update_time = time.strftime("%Y-%m-%d " + str(hour).zfill(2) + ":%M:%S", ut
 st.write(f"Last updated: {last_update_time}")
 
 # Telegram Bot Configuration
-# TELEGRAM_CHANNEL_ID = "@MilitechKD637"  # Use the provided channel ID
-# TELEGRAM_BOT_TOKEN = st.secrets["TELEGRAM_BOT_TOKEN"] #This is not used because the token is hardcoded
 
 # Auto-refresh every 5 minutes
 time.sleep(60)
