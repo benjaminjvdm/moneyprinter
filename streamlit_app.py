@@ -5,9 +5,14 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 import ta
+import telegram
 
 # Set Streamlit app title
 st.title("GBPJPY Candlestick Chart with RSI and EMA")
+
+# Send Telegram message on app load
+message = "Militech-KD6-3.7 Initialised..."
+send_telegram_message(message)
 
 # Function to fetch data
 @st.cache_data
@@ -43,11 +48,19 @@ for i in range(1, len(rsi_series[-48:])):
             # Check if RSI was below 50 before the crossover
             if any(rsi_series[-48:][max(0, i-7):i] < 50):
                 crossovers.append({'index': data.index[-48:][i], 'type': 'bullish', 'rsi': rsi_series[-48:][i]})
+
+                # Send Telegram message on bullish crossover
+                message = f"Bullish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+                send_telegram_message(message)
     elif (rsi_series[-48:][i] < rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] > rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] < 50:
             # Check if RSI was above 50 in the last 7 points before the crossover
             if any(rsi_series[-48:][max(0, i-7):i] > 50):
                 crossovers.append({'index': data.index[-48:][i], 'type': 'bearish', 'rsi': rsi_series[-48:][i]})
+
+                # Send Telegram message on bearish crossover
+                message = f"Bearish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+                send_telegram_message(message)
 
 # Add crossover markers
 for crossover in crossovers:
@@ -81,6 +94,19 @@ if utc_time.tm_hour + 2 >= 24:
     day += 1
 last_update_time = time.strftime("%Y-%m-%d " + str(hour).zfill(2) + ":%M:%S", utc_time)
 st.write(f"Last updated: {last_update_time}")
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN = st.secrets["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_CHANNEL_ID = "@MilitechKD637"  # Use the provided channel ID
+
+# Function to send Telegram message
+def send_telegram_message(message):
+    bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
+    try:
+        bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
+        st.write("Telegram message sent successfully!")
+    except Exception as e:
+        st.write(f"Error sending Telegram message: {e}")
 
 # Auto-refresh every 5 minutes
 time.sleep(60)
