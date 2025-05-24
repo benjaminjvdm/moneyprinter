@@ -1,3 +1,21 @@
+import asyncio
+import telegram
+# Function to send Telegram message
+def send_telegram_message(message):
+    print("Inside send_telegram_message with message:", message)  # Log statement
+    # WARNING: Hardcoding the token is not recommended. Use st.secrets instead.
+    bot = telegram.Bot(token="7826723713:AAELTqdOTm2WkAIpuq2IF1-NN99Lk0i6klA")
+    try:
+        result = asyncio.run(bot.send_message(chat_id="@MilitechKD637", text=message))
+        st.write("Telegram message sent successfully!")
+        print("Telegram message sent successfully!")  # Log statement
+        print("Telegram send_message result:", result)  # Log statement
+        print("Telegram bot object:", bot)  # Log statement
+    except Exception as e:
+        st.write(f"Error sending Telegram message: {e}")
+        print(f"Error sending Telegram message: {e}")  # Log statement
+    print("Exiting send_telegram_message")  # Log statement
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -5,19 +23,20 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 import ta
-import telegram
 
 # Set Streamlit app title
 st.title("GBPJPY Candlestick Chart with RSI and EMA")
 
 # Send Telegram message on app load
 message = "Militech-KD6-3.7 Initialised..."
+print("Calling send_telegram_message with message:", message)  # Log statement
 send_telegram_message(message)
+print("send_telegram_message called")  # Log statement
 
 # Function to fetch data
 @st.cache_data
 def get_data():
-    data = yf.download(tickers="GBPJPY=X", period="7d", interval="5m")
+    data = yf.download(tickers="BTC-USD", period="7d", interval="5m")
     return data
 
 # Get the data
@@ -51,7 +70,9 @@ for i in range(1, len(rsi_series[-48:])):
 
                 # Send Telegram message on bullish crossover
                 message = f"Bullish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+                print("Calling send_telegram_message with message:", message)  # Log statement
                 send_telegram_message(message)
+                print("send_telegram_message called")  # Log statement
     elif (rsi_series[-48:][i] < rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] > rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] < 50:
             # Check if RSI was above 50 in the last 7 points before the crossover
@@ -60,7 +81,9 @@ for i in range(1, len(rsi_series[-48:])):
 
                 # Send Telegram message on bearish crossover
                 message = f"Bearish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
+                print("Calling send_telegram_message with message:", message)  # Log statement
                 send_telegram_message(message)
+                print("send_telegram_message called")  # Log statement
 
 # Add crossover markers
 for crossover in crossovers:
@@ -96,17 +119,8 @@ last_update_time = time.strftime("%Y-%m-%d " + str(hour).zfill(2) + ":%M:%S", ut
 st.write(f"Last updated: {last_update_time}")
 
 # Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN = st.secrets["TELEGRAM_BOT_TOKEN"]
-TELEGRAM_CHANNEL_ID = "@MilitechKD637"  # Use the provided channel ID
-
-# Function to send Telegram message
-def send_telegram_message(message):
-    bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
-    try:
-        bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
-        st.write("Telegram message sent successfully!")
-    except Exception as e:
-        st.write(f"Error sending Telegram message: {e}")
+# TELEGRAM_CHANNEL_ID = "@MilitechKD637"  # Use the provided channel ID
+# TELEGRAM_BOT_TOKEN = st.secrets["TELEGRAM_BOT_TOKEN"] #This is not used because the token is hardcoded
 
 # Auto-refresh every 5 minutes
 time.sleep(60)
