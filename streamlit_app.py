@@ -40,10 +40,14 @@ crossovers = []
 for i in range(1, len(rsi_series[-48:])):
     if (rsi_series[-48:][i] > rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] < rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] > 50:
-            crossovers.append({'index': data.index[-48:][i], 'type': 'bullish', 'rsi': rsi_series[-48:][i]})
+            # Check if RSI was below 50 before the crossover
+            if any(rsi_series[-48:][max(0, i-7):i] < 50):
+                crossovers.append({'index': data.index[-48:][i], 'type': 'bullish', 'rsi': rsi_series[-48:][i]})
     elif (rsi_series[-48:][i] < rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] > rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] < 50:
-            crossovers.append({'index': data.index[-48:][i], 'type': 'bearish', 'rsi': rsi_series[-48:][i]})
+            # Check if RSI was above 50 in the last 7 points before the crossover
+            if any(rsi_series[-48:][max(0, i-7):i] > 50):
+                crossovers.append({'index': data.index[-48:][i], 'type': 'bearish', 'rsi': rsi_series[-48:][i]})
 
 # Add crossover markers
 for crossover in crossovers:
