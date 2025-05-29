@@ -82,35 +82,40 @@ fig.add_trace(go.Scatter(x=data.index[-48:], y=rsi_ema[-48:], name="RSI EMA", li
 rsi_series = pd.Series(rsi)
 rsi_ema_series = pd.Series(rsi_ema)
 crossovers = []
-for i in range(1, len(rsi_series[-48:])):
+# Check last two candles for crossover
+crossover_count = 0
+last_crossover = None
+for i in range(max(1, len(rsi_series[-48:]) - 2), len(rsi_series[-48:])):
     if (rsi_series[-48:][i] > rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] < rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] > 50:
             # Check if RSI was below 50 before the crossover
             if any(rsi_series[-48:][max(0, i-7):i] < 50):
                 crossovers.append({'index': data.index[-48:][i], 'type': 'bullish', 'rsi': rsi_series[-48:][i]})
-
-            # Send Telegram message on bullish crossover
-            message = f"Bullish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
-            if not is_duplicate_message(message, message_log_df):
-                print("Calling send_telegram_message with message:", message)  # Log statement
-                send_telegram_message(message)
-                message_log_df = add_message_to_log(message, message_log_df)
-            else:
-                print("Duplicate message suppressed:", message)  # Log statement
+                crossover_count += 1
+                last_crossover = crossovers[-1]
+                break  # Exit loop after first crossover
     elif (rsi_series[-48:][i] < rsi_ema_series[-48:][i] and rsi_series[-48:][i-1] > rsi_ema_series[-48:][i-1]):
         if rsi_series[-48:][i] < 50:
             # Check if RSI was above 50 in the last 7 points before the crossover
             if any(rsi_series[-48:][max(0, i-7):i] > 50):
                 crossovers.append({'index': data.index[-48:][i], 'type': 'bearish', 'rsi': rsi_series[-48:][i]})
+                crossover_count += 1
+                last_crossover = crossovers[-1]
+                break  # Exit loop after first crossover
 
-            # Send Telegram message on bearish crossover
-            message = f"Bearish Crossover Alert!\nDate/Time: {data.index[-48:][i]}\nRSI: {rsi_series[-48:][i]:.2f}"
-            if not is_duplicate_message(message, message_log_df):
-                print("Calling send_telegram_message with message:", message)  # Log statement
-                send_telegram_message(message)
-                message_log_df = add_message_to_log(message, message_log_df)
-            else:
-                print("Duplicate message suppressed:", message)  # Log statement
+# Send Telegram message if exactly one crossover found in last two candles
+if crossover_count == 1:
+    if last_crossover['type'] == 'bullish':
+        message = f"Bullish Crossover Alert!\nDate/Time: {last_crossover['index']}\nRSI: {last_crossover['rsi']:.2f}"
+    elif last_crossover['type'] == 'bearish':
+        message = f"Bearish Crossover Alert!\nDate/Time: {last_crossover['index']}\nRSI: {last_crossover['rsi']:.2f}"
+
+    if not is_duplicate_message(message, message_log_df):
+        print("Calling send_telegram_message with message:", message)  # Log statement
+        send_telegram_message(message)
+        message_log_df = add_message_to_log(message, message_log_df)
+    else:
+        print("Duplicate message suppressed:", message)  # Log statement
 
 # Add crossover markers
 for crossover in crossovers:
