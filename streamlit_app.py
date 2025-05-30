@@ -37,7 +37,7 @@ interval = "5m"
 def send_telegram_message(message):
     print("Inside send_telegram_message with message:", message)  # Log statement
     # WARNING: Hardcoding the token is not recommended. Use st.secrets instead.
-    bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
+    bot = telegram.Bot(token=st.secrets["TELEGRAM_BOT_TOKEN"])
     try:
         result = asyncio.run(bot.send_message(chat_id="@MilitechKD637", text=message))
         st.write("Telegram message sent successfully!")
