@@ -2,6 +2,12 @@ import streamlit as st
 import logging
 from plotly.subplots import make_subplots
 logging.basicConfig(level=logging.INFO)
+logging.info("Checking if plotly.subplots is imported...")
+try:
+    import plotly.subplots
+    logging.info("plotly.subplots is imported")
+except ImportError:
+    logging.error("plotly.subplots is NOT imported")
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -29,23 +35,31 @@ interval = "5m"
 
 # Function to send Telegram message
 def send_telegram_message(message):
+    print("Inside send_telegram_message with message:", message)  # Log statement
     # WARNING: Hardcoding the token is not recommended. Use st.secrets instead.
     bot = telegram.Bot(token=st.secrets["TELEGRAM_BOT_TOKEN"])
     try:
         result = asyncio.run(bot.send_message(chat_id="@MilitechKD637", text=message))
         st.write("Telegram message sent successfully!")
+        print("Telegram message sent successfully!")  # Log statement
+        print("Telegram send_message result:", result)  # Log statement
+        print("Telegram bot object:", bot)  # Log statement
     except Exception as e:
         st.write(f"Error sending Telegram message: {e}")
+        print(f"Error sending Telegram message: {e}")  # Log statement
+    print("Exiting send_telegram_message")  # Log statement
 
-# Initialize session state variables
+# Send initialization message
+
+# Auto-refresh functionality
 if 'last_refresh_time' not in st.session_state:
     st.session_state.last_refresh_time = datetime.now()
+
+# Store previous signals to avoid duplicate alerts
 if 'last_buy_signal_time' not in st.session_state:
     st.session_state.last_buy_signal_time = None
 if 'last_sell_signal_time' not in st.session_state:
     st.session_state.last_sell_signal_time = None
-if 'last_refresh' not in st.session_state:
-    st.session_state.last_refresh = datetime.now(pytz.timezone('Etc/GMT-2')).strftime('%Y-%m-%d %H:%M:%S')
 
 # Function to convert UTC to UTC+2
 def convert_to_utc_plus_2(dt):
@@ -128,7 +142,7 @@ def calculate_indicators(df):
     # Merge and forward fill
     df = pd.merge_asof(df.reset_index(), htf_data.reset_index(), on='Datetime', direction='backward')
     df = df.set_index('Datetime')
-    df[['sslDown', 'sslUp']] = df[['sslDown', 'sslUp']].ffill()
+    df[['sslDown', 'sslUp']] = df[['sslDown', 'sslUp']].ffill()  # Using ffill instead of fillna(method='ffill')
     
     # === RSI Filter ===
     delta = df['Close'].diff()
@@ -138,7 +152,7 @@ def calculate_indicators(df):
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    # Calculate EMA of RSI
+    # Calculate EMA of RSI (from second app)
     df['RSI_EMA'] = pd.Series(df['RSI']).ewm(span=14, adjust=False).mean()
     
     rsiOverbought = 70
@@ -171,7 +185,7 @@ def calculate_indicators(df):
     
     # Shooting Star (top): small body, long upper wick
     df['shooting_star'] = (df['Open'] > df['Close']) & ((df['High'] - df['Open']) > 2 * (df['Open'] - df['Close']))
-
+    
     # === Final Combined Conditions ===
     df['enhanced_buy_signal'] = df['rsi_filter_buy'] & df['vol_spike'] & df['bullish_div'] & df['hammer']
     df['enhanced_sell_signal'] = df['rsi_filter_sell'] & df['vol_spike'] & df['bearish_div'] & df['shooting_star']
@@ -187,7 +201,7 @@ def calculate_indicators(df):
     df['ssl_up_cross_down'] = (df['sslUp'] > df['sslDown']) & (df['sslUp'].shift(1) <= df['sslDown'].shift(1))
     df['ssl_down_cross_up'] = (df['sslUp'] < df['sslDown']) & (df['sslUp'].shift(1) >= df['sslDown'].shift(1))
     
-    # First time only logic
+    # First time only logic - using infer_objects() to avoid FutureWarning
     df['was_ssl_up_cross_down'] = df['ssl_up_cross_down'].shift(1).fillna(False)
     df['was_ssl_down_cross_up'] = df['ssl_down_cross_up'].shift(1).fillna(False)
     
@@ -398,43 +412,28 @@ def create_signal_info(df):
         
         # Format the datetime to show UTC+2
         signal_time = last_signal['Datetime'].strftime('%Y-%m-%d %H:%M:%S')
-        signal_datetime = last_signal['Datetime']
         
         # Check if this is a new signal that we haven't alerted on yet
         is_new_signal = False
         
-        # Get current time in UTC+2 for comparison
-        current_time = datetime.now(pytz.timezone('Etc/GMT-2'))
+        if signal_type == "Buy" and (st.session_state.last_buy_signal_time is None or 
+                                     last_signal['Datetime'] != st.session_state.last_buy_signal_time):
+            st.session_state.last_buy_signal_time = last_signal['Datetime']
+            is_new_signal = True
+        elif signal_type == "Sell" and (st.session_state.last_sell_signal_time is None or 
+                                        last_signal['Datetime'] != st.session_state.last_sell_signal_time):
+            st.session_state.last_sell_signal_time = last_signal['Datetime']
+            is_new_signal = True
         
-        # Convert signal_datetime to datetime with timezone if it's not already
-        if isinstance(signal_datetime, pd.Timestamp) and signal_datetime.tzinfo is None:
-            signal_datetime = pytz.timezone('Etc/GMT-2').localize(signal_datetime.to_pydatetime())
-        
-        # Calculate time difference in minutes
-        time_diff = (current_time - signal_datetime).total_seconds() / 60
-        
-        # Only consider signals within the last 5 minutes
-        if time_diff <= 5:
-            if signal_type == "Buy" and (st.session_state.last_buy_signal_time is None or 
-                                        signal_datetime != st.session_state.last_buy_signal_time):
-                st.session_state.last_buy_signal_time = signal_datetime
-                st.session_state.last_buy_telegram_time = datetime.now(pytz.timezone('Etc/GMT-2'))
-                is_new_signal = True
-            elif signal_type == "Sell" and (st.session_state.last_sell_signal_time is None or 
-                                            signal_datetime != st.session_state.last_sell_signal_time):
-                st.session_state.last_sell_signal_time = signal_datetime
-                st.session_state.last_sell_telegram_time = datetime.now(pytz.timezone('Etc/GMT-2'))
-                is_new_signal = True
-        
-        # Send Telegram alert for new signals within the last 5 minutes
+        # Send Telegram alert for new signals
         if is_new_signal:
             # Format the message with price, symbol, and strategy
             message = f"{signal_type} Signal Alert!\n" \
-                    f"Symbol: {symbol}\n" \
-                    f"Strategy: EMA CCI SSL\n" \
-                    f"Date/Time: {signal_time}\n" \
-                    f"Price: {last_signal['Close']:.2f}\n" \
-                    f"RSI: {last_signal['RSI']:.2f}"
+                      f"Symbol: {symbol}\n" \
+                      f"Strategy: EMA CCI SSL\n" \
+                      f"Date/Time: {signal_time}\n" \
+                      f"Price: {last_signal['Close']:.2f}\n" \
+                      f"RSI: {last_signal['RSI']:.2f}"
             
             # Send the message
             send_telegram_message(message)
@@ -445,8 +444,7 @@ def create_signal_info(df):
             'Signal Time (UTC+2)': [signal_time],
             'Signal Price': [last_signal['Close']],
             'Current Price': [current_price],
-            'Change %': [f"{'+' if pct_change >= 0 else ''}{pct_change:.2f}%"],
-            'Minutes Since Signal': [f"{time_diff:.1f}"]
+            'Change %': [f"{'+' if pct_change >= 0 else ''}{pct_change:.2f}%"]
         })
         
         return signal_info, pct_change >= 0
@@ -460,6 +458,10 @@ def get_current_time():
     # Convert to UTC+2
     utc_plus_2 = utc_now.astimezone(pytz.timezone('Etc/GMT-2'))
     return utc_plus_2.strftime('%Y-%m-%d %H:%M:%S')
+
+# Create a placeholder for the last refresh time
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = get_current_time()
 
 # Auto-refresh functionality - check if 5 minutes have passed
 current_time = datetime.now()
@@ -500,18 +502,59 @@ if signal_info is not None:
     
     # Apply styling - using newer Pandas styling API
     styled_signal_info = signal_info.style.map(color_signal_type, subset=['Signal Type'])
-
-# Display last telegram message sent times
-st.subheader("Last Telegram Message Sent Times")
-last_buy_telegram_time = st.session_state.get("last_buy_telegram_time")
-last_sell_telegram_time = st.session_state.get("last_sell_telegram_time")
-
-if last_buy_telegram_time:
-    st.write(f"Last Buy Signal Telegram Message Sent Time (UTC+2): {last_buy_telegram_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    styled_signal_info = styled_signal_info.map(color_change, subset=['Change %'])
+    
+    st.dataframe(styled_signal_info, use_container_width=True)
 else:
-    st.write("No Buy Signal Telegram Message Sent Yet")
+    st.info("No signals detected in the current data.")
 
-if last_sell_telegram_time:
-    st.write(f"Last Sell Signal Telegram Message Sent Time (UTC+2): {last_sell_telegram_time.strftime('%Y-%m-%d %H:%M:%S')}")
-else:
-    st.write("No Sell Signal Telegram Message Sent Yet")
+
+# Add RSI/EMA chart from the second app
+st.subheader("RSI and RSI EMA")
+
+# Create RSI chart
+rsi_fig = make_subplots(rows=1, cols=1, shared_xaxes=True)
+
+# Add RSI trace
+rsi_fig.add_trace(
+    go.Scatter(
+        x=df['Datetime'][-48:], 
+        y=df['RSI'][-48:], 
+        name="RSI", 
+        line=dict(color="lightblue")
+    )
+)
+
+# Add EMA of RSI trace
+rsi_fig.add_trace(
+    go.Scatter(
+        x=df['Datetime'][-48:], 
+        y=df['RSI_EMA'][-48:], 
+        name="RSI EMA", 
+        line=dict(color="hotpink")
+    )
+)
+
+# Update layout
+rsi_fig.update_layout(
+    xaxis_rangeslider_visible=False,
+    yaxis=dict(range=[0, 100]),
+    height=400,
+    shapes = [dict(
+        x0=df['Datetime'][-48:].iloc[0], 
+        x1=df['Datetime'][-48:].iloc[-1], 
+        y0=50, y1=50, 
+        type="line",
+        line=dict(color="white", width=2, dash="dash")
+    )]
+)
+
+# Show the RSI plot
+st.plotly_chart(rsi_fig, use_container_width=True)
+
+# Display last updated time
+st.write(f"Last updated: {st.session_state.last_refresh}")
+
+# Auto-refresh every 5 minutes (using Streamlit's rerun mechanism)
+time.sleep(500)  # Small delay to prevent excessive CPU usage
+st.rerun()
