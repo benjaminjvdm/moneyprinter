@@ -404,7 +404,7 @@ with col1:
         else:
             df_ssl_cci_ema_4h = calculate_ssl_cci_ema_signals(data_4h.copy())
             chart_ssl_cci_ema_4h = create_ssl_cci_ema_chart(df_ssl_cci_ema_4h, symbol)
-            st.plotly_chart(chart_ssl_cci_ema_4h, use_container_width=True)
+            st.plotly_chart(chart_ssl_cci_ema_4h, use_container_width=True, key=f"{symbol}_4h")
 
 with col2:
     st.subheader(f"Chart: {symbol} (1d) - UTC+2 Timezone")
@@ -414,7 +414,41 @@ with col2:
     else:
         df_ssl_cci_ema_1d = calculate_ssl_cci_ema_signals(data_1d.copy())
         chart_ssl_cci_ema_1d = create_ssl_cci_ema_chart(df_ssl_cci_ema_1d, symbol)
-        st.plotly_chart(chart_ssl_cci_ema_1d, use_container_width=True)
+        st.plotly_chart(chart_ssl_cci_ema_1d, use_container_width=True, key=f"{symbol}_1d")
 
 
 st.write(f"Last updated: {st.session_state.last_refresh}")
+
+# Dashboard title
+st.title("Financial Dashboard")
+
+# Define symbols and timeframes
+symbols = {"GC=F": "Gold", "GBPJPY=X": "GBPJPY", "AUDJPY=X": "AUDJPY"}
+timeframes = {"4h": ("1h", "60d"), "1d": ("1d", "1y")}
+
+# Create a layout with columns
+st.header("Price Charts")
+for timeframe, (interval, period) in timeframes.items():
+    st.subheader(f"Timeframe: {timeframe}")
+    columns = st.columns(len(symbols))
+    for i, (symbol, name) in enumerate(symbols.items()):
+        with columns[i]:
+            st.subheader(f"{name} ({timeframe})")
+            data_raw = get_data(symbol, interval, period)
+            if data_raw.empty:
+                st.error(f"No data available for {symbol} ({timeframe})")
+            else:
+                if timeframe == "4h":
+                    data_4h_raw = get_data(symbol, "1h", "60d")
+                    data = data_4h_raw.set_index('Datetime').resample('4h').agg({
+                        'Open': 'first',
+                        'High': 'max',
+                        'Low': 'min',
+                        'Close': 'last',
+                        'Volume': 'sum'
+                    }).dropna().reset_index()
+                else:
+                    data = data_raw
+                df_ssl_cci_ema = calculate_ssl_cci_ema_signals(data.copy())
+                chart_ssl_cci_ema = create_ssl_cci_ema_chart(df_ssl_cci_ema, symbol)
+                st.plotly_chart(chart_ssl_cci_ema, use_container_width=True, key=f"{name}_{timeframe}")
