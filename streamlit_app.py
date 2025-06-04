@@ -359,7 +359,6 @@ st.set_page_config(
 )
 
 
-st.title("EMA CCI SSL BUY SELL Signal")
 
 
 symbol = "GC=F"
@@ -384,7 +383,6 @@ if 'last_refresh' not in st.session_state:
 st.write(f"Last updated: {st.session_state.last_refresh}")
 
 # Dashboard title
-st.title("Financial Dashboard")
 
 # Define symbols and timeframes
 symbols = {"GC=F": "Gold", "GBPJPY=X": "GBPJPY", "AUDJPY=X": "AUDJPY"}
