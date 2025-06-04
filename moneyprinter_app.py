@@ -354,13 +354,12 @@ except ImportError:
 
 
 st.set_page_config(
-    page_title="EMA CCI SSL BUY SELL Signal [THANHCONG]",
+    page_title="EMA CCI SSL BUY SELL Signal",
     layout="wide"
 )
 
 
-st.title("EMA CCI SSL BUY SELL Signal [THANHCONG]")
-st.markdown("Python version of TradingView PineScript indicator")
+st.title("EMA CCI SSL BUY SELL Signal")
 
 
 symbol = "GC=F"
@@ -380,41 +379,6 @@ if st.button("Refresh Charts"):
 
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = get_current_time()
-
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader(f"Chart: {symbol} (4h) - UTC+2 Timezone")
-    data_4h_raw = get_data(symbol, "1h", "60d") 
-    if data_4h_raw.empty:
-        st.error(f"No data available for {symbol} (4h)")
-    else:
-        
-        data_4h = data_4h_raw.set_index('Datetime').resample('4h').agg({
-            'Open': 'first',
-            'High': 'max',
-            'Low': 'min',
-            'Close': 'last',
-            'Volume': 'sum'
-        }).dropna().reset_index()
-        
-        if data_4h.empty:
-            st.error(f"No 4-hour aggregated data available for {symbol}")
-        else:
-            df_ssl_cci_ema_4h = calculate_ssl_cci_ema_signals(data_4h.copy())
-            chart_ssl_cci_ema_4h = create_ssl_cci_ema_chart(df_ssl_cci_ema_4h, symbol)
-            st.plotly_chart(chart_ssl_cci_ema_4h, use_container_width=True, key=f"{symbol}_4h")
-
-with col2:
-    st.subheader(f"Chart: {symbol} (1d) - UTC+2 Timezone")
-    data_1d = get_data(symbol, "1d", "1y") 
-    if data_1d.empty:
-        st.error(f"No data available for {symbol} (1d)")
-    else:
-        df_ssl_cci_ema_1d = calculate_ssl_cci_ema_signals(data_1d.copy())
-        chart_ssl_cci_ema_1d = create_ssl_cci_ema_chart(df_ssl_cci_ema_1d, symbol)
-        st.plotly_chart(chart_ssl_cci_ema_1d, use_container_width=True, key=f"{symbol}_1d")
 
 
 st.write(f"Last updated: {st.session_state.last_refresh}")
